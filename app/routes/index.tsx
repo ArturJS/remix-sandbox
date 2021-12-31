@@ -1,6 +1,26 @@
+import indexStyles from '../styles/index.scss';
+// import '../styles/index.scss';
+
+export function links() {
+  console.log({
+    indexStyles
+  })
+
+  return [
+    {
+      rel: "stylesheet",
+      href: "https://unpkg.com/modern-css-reset@1.4.0/dist/reset.min.css"
+    },
+    {
+      rel: "stylesheet",
+      href: JSON.stringify(indexStyles)
+    }
+  ];
+}
+
 export default function Index() {
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.4" }}>
+    <div className="index-page">
       <h1>Welcome to Remix</h1>
       <ul>
         <li>
@@ -8,6 +28,7 @@ export default function Index() {
             target="_blank"
             href="https://remix.run/tutorials/blog"
             rel="noreferrer"
+            className="link"
           >
             15m Quickstart Blog Tutorial
           </a>

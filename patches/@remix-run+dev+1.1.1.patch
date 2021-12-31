@@ -1,0 +1,111 @@
+diff --git a/node_modules/@remix-run/dev/compiler.js b/node_modules/@remix-run/dev/compiler.js
+index 5dc3ee5..9502013 100644
+--- a/node_modules/@remix-run/dev/compiler.js
++++ b/node_modules/@remix-run/dev/compiler.js
+@@ -28,6 +28,7 @@ var loaders = require('./compiler/loaders.js');
+ var mdx = require('./compiler/plugins/mdx.js');
+ var routes = require('./compiler/routes.js');
+ var fs$1 = require('./compiler/utils/fs.js');
++var sassPlugin = require('esbuild-plugin-sass');
+ 
+ function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+ 
+@@ -298,7 +299,7 @@ async function createBrowserBuild(config, options) {
+     format: "esm",
+     external: externals,
+     inject: [reactShim],
+-    loader: loaders.loaders,
++    loader: loaders.loaders, // todo add sass loader
+     bundle: true,
+     logLevel: "silent",
+     splitting: true,
+@@ -313,7 +314,12 @@ async function createBrowserBuild(config, options) {
+     define: {
+       "process.env.NODE_ENV": JSON.stringify(options.mode)
+     },
+-    plugins: [mdx.mdxPlugin(config), browserRouteModulesPlugin(config, /\?browser$/), emptyModulesPlugin(config, /\.server(\.[jt]sx?)?$/)]
++    plugins: [
++      mdx.mdxPlugin(config),
++      browserRouteModulesPlugin(config, /\?browser$/),
++      emptyModulesPlugin(config, /\.server(\.[jt]sx?)?$/),
++      sassPlugin()
++    ]
+   });
+ }
+ 
+@@ -342,32 +348,38 @@ async function createServerBuild(config, options) {
+     define: {
+       "process.env.NODE_ENV": JSON.stringify(options.mode)
+     },
+-    plugins: [mdx.mdxPlugin(config), serverRouteModulesPlugin(config), emptyModulesPlugin(config, /\.client(\.[jt]sx?)?$/), manualExternalsPlugin((id, importer) => {
+-      // assets.json is external because this build runs in parallel with the
+-      // browser build and it's not there yet.
+-      if (id === "./assets.json" && importer === "<stdin>") return true; // Mark all bare imports as external. They will be require()'d (or
+-      // imported if ESM) at runtime from node_modules.
+-
+-      if (isBareModuleId(id)) {
+-        let packageName = getNpmPackageName(id);
+-
+-        if (!/\bnode_modules\b/.test(importer) && !module$1.builtinModules.includes(packageName) && !dependencies$1.includes(packageName)) {
+-          options.onWarning(`The path "${id}" is imported in ` + `${path__namespace.relative(process.cwd(), importer)} but ` + `${packageName} is not listed in your package.json dependencies. ` + `Did you forget to install it?`, packageName);
+-        } // Include .css files from node_modules in the build so we can get a
+-        // hashed file name to put into the HTML.
+-
+-
+-        if (id.endsWith(".css")) return false; // Include "remix" in the build so the server runtime (node) doesn't
+-        // have to try to find the magic exports at runtime. This essentially
+-        // translates all `import x from "remix"` statements into `import x
+-        // from "@remix-run/x"` in the build.
+-
+-        if (packageName === "remix") return false;
+-        return true;
+-      }
++    plugins: [
++      mdx.mdxPlugin(config),
++      serverRouteModulesPlugin(config),
++      emptyModulesPlugin(config, /\.client(\.[jt]sx?)?$/),
++      manualExternalsPlugin((id, importer) => {
++        // assets.json is external because this build runs in parallel with the
++        // browser build and it's not there yet.
++        if (id === "./assets.json" && importer === "<stdin>") return true; // Mark all bare imports as external. They will be require()'d (or
++        // imported if ESM) at runtime from node_modules.
++
++        if (isBareModuleId(id)) {
++          let packageName = getNpmPackageName(id);
++
++          if (!/\bnode_modules\b/.test(importer) && !module$1.builtinModules.includes(packageName) && !dependencies$1.includes(packageName)) {
++            options.onWarning(`The path "${id}" is imported in ` + `${path__namespace.relative(process.cwd(), importer)} but ` + `${packageName} is not listed in your package.json dependencies. ` + `Did you forget to install it?`, packageName);
++          } // Include .css files from node_modules in the build so we can get a
++          // hashed file name to put into the HTML.
++
++
++          if (id.endsWith(".css")) return false; // Include "remix" in the build so the server runtime (node) doesn't
++          // have to try to find the magic exports at runtime. This essentially
++          // translates all `import x from "remix"` statements into `import x
++          // from "@remix-run/x"` in the build.
++
++          if (packageName === "remix") return false;
++          return true;
++        }
+ 
+-      return false;
+-    })]
++        return false;
++      }),
++      sassPlugin()
++  ]
+   });
+ }
+ 
+diff --git a/node_modules/@remix-run/dev/compiler/loaders.js b/node_modules/@remix-run/dev/compiler/loaders.js
+index 93e97fc..1c1194f 100644
+--- a/node_modules/@remix-run/dev/compiler/loaders.js
++++ b/node_modules/@remix-run/dev/compiler/loaders.js
+@@ -37,6 +37,7 @@ var path__namespace = /*#__PURE__*/_interopNamespace(path);
+ const loaders = {
+   ".aac": "file",
+   ".css": "file",
++  ".scss": "file",
+   ".eot": "file",
+   ".flac": "file",
+   ".gif": "file",
